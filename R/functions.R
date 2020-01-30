@@ -67,3 +67,25 @@ merge.sparse <- function(...) {
 
   sparseMatrix(i=i,j=j,x=x,dims=c(length(rnnew),length(cnnew)),dimnames=list(rnnew,cnnew))
 }
+
+#' Creates a pseudobulk using a grouped tibble
+#'
+#' @param umi UMI count matrix (genes x cells)
+#' @param df.grouped Grouped tibble. The grouping should only be based on a single column
+#' @param cell.col  Column in the tibble, where the cell names are stored.
+#' @param min.cells Minimal number of cells which should be merged to a pseudobulk
+#' @param n.cores Number of cores to run in parallel.
+#'
+#' @return Matrix of pseudobulks
+get.pb.umi <- function(umi, df.grouped, cell.col = "cell_id",  min.cells = 50, n.cores = 1){
+  df.list <- df.grouped %>% filter(n() >= min.cells) %>% group_split()
+  names(df.list) <- df.grouped %>% filter(n() >= min.cells) %>% group_keys() %>% pull(1)
+
+  df.list <- df.list
+
+  pbmcapply::pbmclapply(df.list, function(x){
+    cells <- x %>% pull(cell.col)
+    rowSums(umi[ ,cells ])
+  }, mc.cores = n.cores) %>%
+    do.call(cbind, .)
+}
